@@ -1,0 +1,34 @@
+on:
+  push:
+    tags:
+      - '*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Bundle MeadowsORM
+        uses: TeamMeadows/bundler@v0.1.0
+        with:
+          name: orm
+          type: package
+
+      - name: Pack bundle into zip
+        run: |
+          mkdir -p artifacts
+          cd dist
+          zip -r ../artifacts/meadowsorm-release.zip orm
+
+      - name: Publish to releases
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/meadowsorm-release.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

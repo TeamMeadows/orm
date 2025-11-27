@@ -1,0 +1,10 @@
+{
+  "Lua.workspace.library": [
+    "${addons}/garrysmod/module/library",
+    "../atomic-framework"
+  ],
+  "Lua.runtime.version": "LuaJIT",
+  "Lua.runtime.nonstandardSymbol": [
+    "continue"
+  ]
+}
