@@ -85,7 +85,7 @@ local function normalizeValue(value, type)
     return value
   end
 
-  return cIn(value)
+  return cIn(value) or NULL
 end
 
 ---@private
@@ -108,20 +108,18 @@ function TableInterface:normalizeResults(rows, joins)
   ---@type table<string, any>[]
   local normalized = {}
 
+  -- todo join support
   for i, row in ipairs(rows) do
-    normalized[i] = {}
+    local object = {}
 
-    for rowInd, rowValue in ipairs(row) do
-      -- todo join support
-      local column = builder:getColumn(rowInd)
-
-      if (not column) then
-        error("unknown column №" .. tostring(rowInd) .. " with value `" .. tostring(rowValue) .. "`")
-      end
-
-      normalized[i][column.name] = normalizeValue(rowValue, column.type)
+    ---@diagnostic disable-next-line invisible
+    for columnId, column in ipairs(self._table._builder._columns) do
+      object[column.name] = normalizeValue(row[columnId], column.type)
     end
+
+    normalized[i] = object
   end
+
 
   if (not class) then
     return normalized
@@ -200,6 +198,11 @@ end
 ---@return table?
 function TableInterface:deleteCached(ind)
   self._cache[ind] = nil
+end
+
+---@return table?
+function TableInterface:getCache()
+  return self._cache
 end
 
 ---@return integer
