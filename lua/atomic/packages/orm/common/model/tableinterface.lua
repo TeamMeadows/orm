@@ -69,9 +69,9 @@ local convertors = {
   ---@diagnostic disable-next-line
   timestamp = { ["in"] = function(s) return end, ["out"] = function(s) return end, },
   ---@diagnostic disable-next-line
-  bool = { ["in"] = function(b) return tobool(b) end, out = function(b) return b and "1" or "0" end},
+  bool = { ["in"] = tobool, out = function(b) return b and "1" or "0" end},
   ---@diagnostic disable-next-line
-  json = { ["in"] = function(s) return util.JSONToTable(s) end, out = function(t) return util.TableToJSON(t) end }
+  json = { ["in"] = util.JSONToTable, out = util.TableToJSON }
 }
 
 ---@param value any
@@ -152,6 +152,7 @@ function TableInterface:findCached(ind)
 end
 
 --- ``Warning``: This method searches for a cached object based on its column value.
+---
 --- Note that if your class does not have a field with the column name,
 --- it will not be able to find this object in the cache.
 ---@param column string
@@ -160,7 +161,7 @@ end
 function TableInterface:findCachedByFilter(column, value)
   local result = {}
 
-  for primary, obj in pairs(self._cache) do
+  for _, obj in pairs(self._cache) do
     if (obj[column] == value) then
       result[#result+1] = obj
     end
@@ -170,6 +171,7 @@ function TableInterface:findCachedByFilter(column, value)
 end
 
 --- ``Warning``: This method searches for a cached object based on its column value.
+---
 --- Note that if your class does not have a field with the column name,
 --- it will not be able to find this object in the cache.
 ---@param column string
@@ -190,14 +192,26 @@ end
 ---@param ind integer | string
 ---@param t table
 ---@return table?
-function TableInterface:updateCached(ind, t)
+function TableInterface:updateCache(ind, t)
+  local oldValue = self._cache[ind]
+
+  if (not oldValue) then
+    return
+  end
+
   self._cache[ind] = t
+
+  return oldValue
 end
 
 ---@param ind integer | string
 ---@return table?
-function TableInterface:deleteCached(ind)
+function TableInterface:deleteFromCache(ind)
+  local oldValue = self._cache[ind]
+
   self._cache[ind] = nil
+
+  return oldValue
 end
 
 ---@return table?
@@ -207,7 +221,7 @@ end
 
 ---@return integer
 function TableInterface:cacheLength()
-  return self._cache and #self._cache or 0
+  return self._cache and #self._cache or 0 -- todo это не массив, если вызвать deleteCached то #self._cache посыпится
 end
 
 ---@alias MeadowsORM.TableInterface.WhereClause table<string, string | number | boolean | table<MeadowsORM.SelectBuilder.WhereCompareIndexes, string | number | boolean>>
@@ -224,7 +238,7 @@ end
 ---@param v any
 ---@return any
 local prepareValue = function(v)
-  return isentity(v) and "NULL" or v
+  return isentity(v) and "NULL" or v -- todo проверить v == NULL (так надёжнее)
 end
 
 --- ```lua

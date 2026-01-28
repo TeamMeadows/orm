@@ -6,5 +6,8 @@
   "Lua.runtime.version": "LuaJIT",
   "Lua.runtime.nonstandardSymbol": [
     "continue"
+  ],
+  "diagnostics.globals": [
+    "mysqloo"
   ]
 }

@@ -80,6 +80,7 @@ end
 ---@private
 ---@return string?
 function SelectBuilder:buildJoin()
+  return -- will break
 end
 
 ---@private

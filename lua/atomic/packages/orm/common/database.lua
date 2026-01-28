@@ -27,7 +27,7 @@ local numericFields = mysqloo.OPTION_NUMERIC_FIELDS
 
 ---@private
 ---@async
---- WARNING: Make sure for query that you push to this function have been escape all their contents??
+--- WARNING: Make sure query you _ (verb) has escape the values
 ---@return table[]
 function package.database.query(query)
   local co = coroutine.get()

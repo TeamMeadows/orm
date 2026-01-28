@@ -12,7 +12,7 @@
 
 ## Features
 - [x] Declarative style
-- [x] Smart caching support
+- [x] Caching support
 - [x] Supports one-to-one relationship between tables
 - [x] Automatically type casting (for types as `boolean`, `json`, `timestamp`)
 - [x] [Asynchronus](https://lua.org/)
