@@ -11,6 +11,9 @@ local TableInterface = package:getClass("TableInterface")
 ---@alias MeadowsORM.Table.Constraints "auto_increment" | "not null" | "primary key" | "unique"
 ---@alias MeadowsORM.Table.Constraints.OnAction "cascade" | "restrict" | "set default" | "set null" | "no action"
 
+--- Class that implements structure of a MySQL's Table.
+---
+--- Internally used in [`TableInterface`](./TableInterface.lua)
 ---@class MeadowsORM.Table
 ---@field protected _class? Atomic.Class
 ---@field protected _cache boolean
@@ -27,6 +30,11 @@ end
 function Table:getName()
   ---@diagnostic disable-next-line
   return self._builder._tableName
+end
+
+---@return MeadowsORM.TableBuilder.Column[]
+function Table:getColumns()
+  return self._builder:getColumns()
 end
 
 ---@return Atomic.Class?
@@ -92,13 +100,13 @@ end
 
 ---@param class Atomic.Class
 ---@return self
-function Table:withDeserialization(class)
+function Table:deserializationClass(class)
   self._class = class
   return self
 end
 
 ---@return self
-function Table:withCaching()
+function Table:cache()
   if (not self._builder:getPrimaryKey()) then
     error("caching only works with tables that have an primary key column")
   end
@@ -112,7 +120,7 @@ end
 function Table:build()
   local sql = self._builder:build()
 
-  coroutine.start(function()
+  async(function()
     local _, err = atomic.mysql.query(sql)
 
     if (err) then

@@ -5,18 +5,25 @@ local package = current()
 local Table = package:getClass("Table")
 
 --- ```lua
---- local orm = package:getDependency("team.meadows.orm")
+--- local MeadowsORM = package:getDependency("team.meadows.orm")
+--- ---@cast MeadowsORM MeadowsORM
 ---
---- local playersTable = orm:create("users")
+--- local playersTable = MeadowsORM:create("users")
 ---   :id()
 ---   :column("steamid", "text", "unique")
 ---   :createdAt()
 ---   :updatedAt()
 ---   :build()
 ---
---- player:findMany({
+--- playersTable:findMany({
 ---   where = {
----     id = 5
+---     -- WHERE id < 9 AND id > 2
+---     id = {
+---       -- Where Id less than (<) 9
+---       lt = 9,
+---       -- And Where Id greater than (>) 2
+---       gt = 2
+---     }
 ---   }
 --- })
 --- ```

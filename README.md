@@ -8,16 +8,15 @@
   <img src="https://img.shields.io/github/license/TeamMeadows/bundler.svg">
 </h1>
 
-**Meadows ORM**
-
 ## Features
 - [x] Declarative style
-- [x] Caching support
-- [x] Supports one-to-one relationship between tables
+- [x] Supporting of `...` builtin
+  - [x] Caching
+  - [x] One-to-one relationships
+  - [x] Joins
+  - [x] Async
+  - [ ] Enum support
 - [x] Automatically type casting (for types as `boolean`, `json`, `timestamp`)
-- [x] [Asynchronus](https://lua.org/)
-- [x] Easy API
-- [x] Fast
 
 <a href="https://github.com/TeamMeadows/atomic-framework">
   <p align="center">

@@ -27,22 +27,22 @@ local numericFields = mysqloo.OPTION_NUMERIC_FIELDS
 
 ---@private
 ---@async
---- WARNING: Make sure query you _ (verb) has escape the values
+--- WARNING: Make sure that your query have been escaped values
 ---@return table[]
 function package.database.query(query)
   local co = coroutine.get()
 
-  local q = db:query(query)
-  q:setOption(numericFields)
-  q.onSuccess = function(_, data)
+  local query = db:query(query)
+  query:setOption(numericFields)
+  query.onSuccess = function(_, data)
     coroutine.resume(co, data)
   end
 
-  q.onError = function(_, err)
+  query.onError = function(_, err)
     coroutine.resume(co, nil, err)
   end
 
-  q:start()
+  query:start()
 
   return coroutine.yield()
 end

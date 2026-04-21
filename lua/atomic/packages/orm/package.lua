@@ -1,23 +1,32 @@
----@type Atomic.Package.Metadata
+---@type PackageMeta
 return {
   id = "team.meadows.orm",
   title = "Meadows ORM",
-  description = "An ORM system for Garry's Mod",
-  documentation = "https://github.com/TeamMeadows/orm/wiki",
+  description = "An ORM for MySQLOO",
+  documentation = "https://github.com/TeamMeadows/orm",
   icon = "https://github.com/TeamMeadows/orm/raw/production/assets/logo.png",
   kind = "library",
   version = "1.0.0",
   files = {
+    dir = "common",
     server = {
-      "common/model/builders/table.lua",
-      "common/model/builders/select.lua",
-      "common/model/builders/insert.lua",
-      "common/model/builders/update.lua",
-      "common/model/builders/delete.lua",
-      "common/model/tableinterface.lua",
-      "common/model/table.lua",
-      "common/api.lua",
-      "common/database.lua"
+      "utilities",
+      "model/builders/TableBuilder",
+      "model/builders/WhereBuilder",
+      "model/builders/SelectBuilder",
+      "model/builders/InsertBuilder",
+      "model/builders/UpdateBuilder",
+      "model/builders/DeleteBuilder",
+      "model/Entity",
+      "model/TableInterface",
+      "model/Table",
+      "api",
+      "database"
+    }
+  },
+  dependencies = {
+    server = {
+      atomic = "^1.0.0-alpha.1"
     }
   }
 }

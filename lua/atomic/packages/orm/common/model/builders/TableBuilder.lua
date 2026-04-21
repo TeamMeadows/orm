@@ -55,6 +55,11 @@ function TableBuilder:column(name, type, constraints, default, onUpdate)
   self._columnsMap[name] = id
 end
 
+---@return MeadowsORM.TableBuilder.Column[]
+function TableBuilder:getColumns()
+  return self._columns
+end
+
 ---@param columnName string
 ---@return MeadowsORM.Table.Type?
 function TableBuilder:getColumnType(columnName)

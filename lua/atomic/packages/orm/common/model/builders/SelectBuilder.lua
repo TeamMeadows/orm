@@ -1,19 +1,12 @@
 ---@class MeadowsORM: Atomic.Package
 local package = current()
 
----@alias MeadowsORM.SelectBuilder.WhereCompare "=" | ">" | "<" | ">=" | "<="
----@alias MeadowsORM.SelectBuilder.WhereCompareIndexes "equals" | "lt" | "lte" | "gt" | "gte"
-local compareIndexes = {
-  equals = "=",
-  lt = "<",
-  lte = "<=",
-  gt = ">",
-  gte = ">=",
-}
+---@type MeadowsORM.WhereBuilder
+local WhereBuilder = package:getClass("WhereBuilder")
 
 ---@class MeadowsORM.SelectBuilder
 ---@field private _table MeadowsORM.Table
----@field private _where table<"and", { column: string, value: any, compare: MeadowsORM.SelectBuilder.WhereCompare }[]>
+---@field private _where MeadowsORM.WhereBuilder
 ---@field private _select string[]
 ---@field private _orderBy { column: string, order: "asc" | "desc" }[]?
 ---@field private _limit? integer
@@ -22,10 +15,7 @@ local SelectBuilder = package:class("SelectBuilder")
 ---@param table MeadowsORM.Table
 function SelectBuilder:init(table)
   self._table = table
-
-  self._where = {
-    ["and"] = {},
-  }
+  self._where = new(WhereBuilder)
   self._select = {}
   self._orderBy = {}
 end
@@ -39,9 +29,9 @@ end
 ---@param method "and"
 ---@param column string
 ---@param value any
----@param compare MeadowsORM.SelectBuilder.WhereCompareIndexes
+---@param compare MeadowsORM.WhereBuilder.WhereCompareIndexes
 function SelectBuilder:where(method, column, value, compare)
-  self._where[method][#self._where[method]+1] = { column = column, value = value, compare = compareIndexes[compare] or compare }
+  self._where:insertAnd(column, value, compare)
 end
 
 ---@param tab table<string, boolean>
@@ -50,7 +40,7 @@ function SelectBuilder:select(tab)
     ---@diagnostic disable-next-line invisible
     if (not self._table._builder:getColumnType(column)) then
       ---@diagnostic disable-next-line invisible
-      error("no column " .. tostring(column) .. " in table " .. tostring(self._table._builder._tableName))
+      error("no column `" .. tostring(column) .. "` in table " .. tostring(self._table._builder._tableName))
     end
 
     self._select[#self._select+1] = column
@@ -64,17 +54,23 @@ end
 
 ---@private
 ---@return string?
+-- function SelectBuilder:buildWhere()
+--   local result = ""
+
+--   local tab = self._where["and"]
+--   local count = #tab
+
+--   for i, v in pairs(tab) do
+--     result = result .. "" .. v.column .. v.compare .. SQLStr(v.value) .. (i == count and "" or " AND ")
+--   end
+
+--   return #result ~= 0 and result or nil
+-- end
+
+---@private
+---@return string?
 function SelectBuilder:buildWhere()
-  local result = ""
-
-  local tab = self._where["and"]
-  local count = #tab
-
-  for i, v in pairs(tab) do
-    result = result .. "" .. v.column .. v.compare .. SQLStr(v.value) .. (i == count and "" or " AND ")
-  end
-
-  return #result ~= 0 and result or nil
+  return self._where:build()
 end
 
 ---@private
@@ -104,34 +100,39 @@ end
 
 ---@private
 ---@return string
-function SelectBuilder:getSelectedFields()
-  local fields = self._select
-  local count = #fields
+function SelectBuilder:buildColumns()
+  local columns = self._select
+  local count = #columns
 
-  if count == 0 then
+  if (count == 0) then
     return "*"
   end
 
   local result = ""
 
-  for i, field in ipairs(fields) do
-    result = result .. "`" .. SQLStr(field, true) .. "`" .. (i == count and "" or ",")
+  for i, column in ipairs(columns) do
+    result = result .. "`" .. SQLStr(column, true) .. "`" .. (i == count and "" or ",")
   end
 
   return result
 end
 
 function SelectBuilder:build()
-  local fields = self:getSelectedFields()
+  local columns = self:buildColumns()
   local where = self:buildWhere()
   local join = self:buildJoin() -- todo
   local order = self:buildOrder()
   local limit = self:getLimit()
 
+  if (not where) then
+    error("where is empty")
+  end
+
   ---@diagnostic disable-next-line invisible
-  return "SELECT " .. SQLStr(fields, true) .. " FROM `" .. SQLStr(self._table._builder._tableName, true) .. "`"
-    .. (where and " WHERE " .. where or "")
+  return "SELECT " .. SQLStr(columns, true) .. " FROM `" .. SQLStr(self._table._builder._tableName, true) .. "`"
+    .. where
     .. (join and " JOIN " .. join or "")
     .. (order and " ORDER BY " .. order or "")
+    ---@diagnostic disable-next-line invisible
     .. (limit and " LIMIT " .. SQLStr(limit, true) or "")
 end

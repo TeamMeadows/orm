@@ -1,3 +1,4 @@
+---@diagnostic disable
 local group = orm:create("groups")
   :id()
   :column("name", "text", "unique", "notnull")
