@@ -26,7 +26,7 @@ function DeleteBuilder:build()
   local where = self._where:build()
 
   if (not where) then
-    error("where is empty")
+    package.logger:debug("warning: where in DeleteBuilder is empty")
   end
 
   return "DELETE FROM `" .. SQLStr(self._tableName, true) .. "`"

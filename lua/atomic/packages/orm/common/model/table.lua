@@ -55,12 +55,11 @@ function Table:column(name, type, constraints, default, onUpdate)
 end
 
 --- Creates a [one-to-one relationship](https://en.wikipedia.org/wiki/One-to-one_(data_model)) between two tables
----@param table MeadowsORM.Table | MeadowsORM.TableInterface
+---@param table MeadowsORM.Table | MeadowsORM.TableInterface | string
 ---@param column string
----@param thisColumn string | MeadowsORM.Table.Constraints.OnAction
+---@param thisColumn? string | MeadowsORM.Table.Constraints.OnAction
 ---@param onDelete? MeadowsORM.Table.Constraints.OnAction
 ---@return self
----@overload fun(table: string, column: string, thisColumn: MeadowsORM.Table.Constraints.OnAction?): self
 function Table:relation(table, column, thisColumn, onDelete)
   local isSelf = type(table) == "string"
 

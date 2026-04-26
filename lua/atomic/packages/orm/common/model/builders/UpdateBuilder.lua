@@ -50,11 +50,11 @@ function UpdateBuilder:build(disableReturningChangedRow)
   local where = self._where:build()
 
   if (not where) then
-    error("where is empty")
+    package.logger:debug("warning: where in UpdateBuilder is empty")
   end
 
   return "UPDATE `" .. SQLStr(self._tableName, true) .. "`"
     .. " SET " .. set
-    .. where
+    .. (where and where or "")
     .. (not disableReturningChangedRow and ("SELECT * FROM `" .. SQLStr(self._tableName) .. "` " .. where) or "")
 end

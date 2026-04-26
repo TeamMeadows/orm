@@ -18,6 +18,17 @@
   - [ ] Enum support
 - [x] Automatically type casting (for types as `boolean`, `json`, `timestamp`)
 
+## Example
+```lua
+local users = users:findMany({
+  where = {
+    group = "superadmin"
+  }
+})
+
+assert(#users == 4)
+```
+
 <a href="https://github.com/TeamMeadows/atomic-framework">
   <p align="center">
     <img src="https://github.com/TeamMeadows/atomic-framework/blob/develop/assets/badges/dark/powered.png?raw=true"/>

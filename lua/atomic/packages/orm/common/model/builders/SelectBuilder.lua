@@ -125,12 +125,12 @@ function SelectBuilder:build()
   local limit = self:getLimit()
 
   if (not where) then
-    error("where is empty")
+    package.logger:debug("warning: where in SelectBuilder is empty")
   end
 
   ---@diagnostic disable-next-line invisible
   return "SELECT " .. SQLStr(columns, true) .. " FROM `" .. SQLStr(self._table._builder._tableName, true) .. "`"
-    .. where
+    .. (where and where or "")
     .. (join and " JOIN " .. join or "")
     .. (order and " ORDER BY " .. order or "")
     ---@diagnostic disable-next-line invisible
