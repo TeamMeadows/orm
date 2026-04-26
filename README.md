@@ -2,10 +2,10 @@
   <img src="assets/logo.png"/>
   <p align="center">Meadows ORM</p>
 
-  <img src="https://img.shields.io/github/actions/workflow/status/TeamMeadows/atomic-framework/build.yml">
-  <img src="https://img.shields.io/github/release/TeamMeadows/bundler.svg">
-  <img src="https://img.shields.io/github/issues/TeamMeadows/bundler.svg">
-  <img src="https://img.shields.io/github/license/TeamMeadows/bundler.svg">
+  <img src="https://img.shields.io/github/actions/workflow/status/TeamMeadows/orm/build.yml">
+  <img src="https://img.shields.io/github/release/TeamMeadows/orm.svg">
+  <img src="https://img.shields.io/github/issues/TeamMeadows/orm.svg">
+  <img src="https://img.shields.io/github/license/TeamMeadows/orm.svg">
 </h1>
 
 ## Features
