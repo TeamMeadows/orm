@@ -28,6 +28,7 @@ local users = users:findMany({
 
 assert(#users == 4)
 ```
+See the detailed example in the [example.lua](./example.lua) file
 
 <a href="https://github.com/TeamMeadows/atomic-framework">
   <p align="center">
