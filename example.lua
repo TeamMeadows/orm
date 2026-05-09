@@ -4,12 +4,17 @@ local package = current()
 local MeadowsORM = package:getDependency("team.meadows.orm")
 ---@cast MeadowsORM MeadowsORM
 
+--- that is bitflags
+--- you can summary them to combine
+local UNIQUE = MeadowsORM.UNIQUE
+local NOT_NULL = MeadowsORM.NOT_NULL
+
 --- 1. Describing table structure
 
 local group = MeadowsORM:create("groups")
   :id() -- add `id` column with auto increment
-  :column("name", "text", {"unique", "not null"})
-  :column("title", "text", {"unique", "not null"})
+  :column("name", "text", UNIQUE + NOT_NULL)
+  :column("title", "text", UNIQUE + NOT_NULL)
   :createdAt() -- add `created_at` column, that will be automatically insert current timestamp when you create new row in database
   :updatedAt() -- add `updated_at` column, that will be automatically updated when you update something in a database row
   :build() -- needed to create TableInterface (class that would be provide methods to interact with this table in database)
@@ -18,8 +23,8 @@ local group = MeadowsORM:create("groups")
 
 local users = MeadowsORM:create("users")
   :id()
-  :column("name", "text", {"unique", "not null"})
-  :column("group", "text", {"unique", "not null"}, "0")
+  :column("name", "text", UNIQUE + NOT_NULL)
+  :column("group", "text", UNIQUE + NOT_NULL, "0")
   :relation(group, "id", "group") -- relation one-to-one by Id column by default
   :build()
 
