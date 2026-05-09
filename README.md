@@ -1,6 +1,6 @@
 <div align="center">
   <img src="assets/logo.png"/>
-  <h align="center">Meadows ORM</h>
+  <h1 align="center">Meadows ORM</h1>
 
   <img src="https://img.shields.io/github/actions/workflow/status/TeamMeadows/orm/build.yml">
   <img src="https://img.shields.io/github/release/TeamMeadows/orm.svg">
@@ -14,7 +14,7 @@
 [Getting Started]: https://deepwiki.com/TeamMeadows/orm/1.2-quick-start-guide
 [Documentation]: https://deepwiki.com/TeamMeadows/orm
 
-Meadows ORM is an [ORM] system for Garry's Mod based on the [Atomic Framework](https://github.com/TeamMeadows/atomic-framework), which allows you to easily integrate it into your [Atomic](https://github.com/TeamMeadows/atomic-framework) projects.
+Meadows ORM is an [ORM](https://en.wikipedia.org/wiki/Object%E2%80%93relational_mapping) system for Garry's Mod based on the [Atomic Framework](https://github.com/TeamMeadows/atomic-framework), which allows you to easily integrate it into your [Atomic](https://github.com/TeamMeadows/atomic-framework) projects.
 
 ## Features
 - [x] Declarative style - you do not need to write SQL code
