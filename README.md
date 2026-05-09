@@ -1,22 +1,29 @@
-<h1 align="center">
+<div align="center">
   <img src="assets/logo.png"/>
-  <p align="center">Meadows ORM</p>
+  <h align="center">Meadows ORM</h>
 
   <img src="https://img.shields.io/github/actions/workflow/status/TeamMeadows/orm/build.yml">
   <img src="https://img.shields.io/github/release/TeamMeadows/orm.svg">
   <img src="https://img.shields.io/github/issues/TeamMeadows/orm.svg">
   <img src="https://img.shields.io/github/license/TeamMeadows/orm.svg">
-</h1>
+
+  [<kbd> <br> Download <br> </kbd>][Download] | [<kbd> <br> Getting Started <br> </kbd>][Getting Started] | [<kbd> <br> Documentation (DeepWiki) <br> </kbd>][Documentation]
+</div>
+
+[Download]: https://github.com/TeamMeadows/orm/releases/latest
+[Getting Started]: https://deepwiki.com/TeamMeadows/orm/1.2-quick-start-guide
+[Documentation]: https://deepwiki.com/TeamMeadows/orm
+
+Meadows ORM is an [ORM] system for Garry's Mod based on the [Atomic Framework](https://github.com/TeamMeadows/atomic-framework), which allows you to easily integrate it into your [Atomic](https://github.com/TeamMeadows/atomic-framework) projects.
 
 ## Features
-- [x] Declarative style
-- [x] Supporting of `...` builtin
-  - [x] Caching
-  - [x] One-to-one relationships
-  - [x] Joins
-  - [x] Async
-  - [ ] Enum support
-- [x] Automatically type casting (for types as `boolean`, `json`, `timestamp`)
+- [x] Declarative style - you do not need to write SQL code
+- [x] Automatic values escaping - you do not need to be care of SQL injections
+- [x] Relations support
+- [x] Joins support - you can write complex queries
+- [x] Based on coroutines (async)
+- [x] Easy to embed in your project
+- [x] [Prisma](https://prisma.io)-like interface to interact with your database
 
 ## Example
 ```lua
