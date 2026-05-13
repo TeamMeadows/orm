@@ -1,7 +1,12 @@
 ---@class MeadowsORM: Atomic.Package
 local package = current()
 
----@alias MeadowsORM.TableBuilder.Column { name: string, type: MeadowsORM.Table.Type, constraints?: MeadowsORM.Table.Constraints[], default?: string, onUpdate?: MeadowsORM.Table.Constraints.OnAction }
+local PRIMARY_KEY = package.constraints.column.PRIMARY_KEY
+
+---@alias MeadowsORM.TableBuilder.Column { name: string, type: MeadowsORM.Table.Type, constraints?: integer, default?: (string | MeadowsORM.RawSQL), onUpdate?: (integer | MeadowsORM.RawSQL) }
+
+---@type MeadowsORM.RawSQL
+local RawSQL = package:getClass("RawSQL")
 
 ---@class MeadowsORM.TableBuilder
 ---@field private _tableName string
@@ -29,30 +34,44 @@ function TableBuilder:getPrimaryKey()
   return self._primaryKey
 end
 
+---@private
 ---@param columnName string
----@param constraints MeadowsORM.Table.Constraints[]
-function TableBuilder:trySetPrimaryKey(columnName, constraints)
-  for _, constraint in ipairs(constraints) do
-    if (constraint == "primary key") then
-      self._primaryKey = columnName
-      break
-    end
+---@param columnConstraints integer
+function TableBuilder:setPrimaryKey(columnName, columnConstraints)
+  if (not self._primaryKey and self:isColumnHasConstraint(columnName, columnConstraints)) then
+    self._primaryKey = columnName
   end
+end
+
+---@param columnName string
+---@param requiredConstraint integer
+function TableBuilder:isColumnHasConstraint(columnName, requiredConstraint)
+  local column = self:getColumnByName(columnName)
+
+  if (not column) then
+    return false
+  end
+
+  return bit.band(column.constraints or 0, requiredConstraint) == requiredConstraint
 end
 
 ---@param name string
 ---@param type string
----@param constraints? MeadowsORM.Table.Constraints[]
----@param default? string
----@param onUpdate? MeadowsORM.Table.Constraints.OnAction
-function TableBuilder:column(name, type, constraints, default, onUpdate)
-  if (not self._primaryKey and constraints) then
-    self:trySetPrimaryKey(name, constraints)
+---@param columnConstraints? integer
+---@param default? string | MeadowsORM.RawSQL
+---@param onUpdate? integer | MeadowsORM.RawSQL
+function TableBuilder:column(name, type, columnConstraints, default, onUpdate)
+  if (self._columns[name]) then
+    error("column " .. tostring(name) .. " is already exists")
   end
 
   local id = #self._columns+1
-  self._columns[id] = { name = name, type = type, constraints = constraints, default = default, onUpdate = onUpdate }
+  self._columns[id] = { name = name, type = type, constraints = columnConstraints, default = default, onUpdate = onUpdate }
   self._columnsMap[name] = id
+
+  if (not self._primaryKey and self:isColumnHasConstraint(name, PRIMARY_KEY)) then
+    self._primaryKey = name
+  end
 end
 
 ---@return MeadowsORM.TableBuilder.Column[]
@@ -63,7 +82,7 @@ end
 ---@param columnName string
 ---@return MeadowsORM.Table.Type?
 function TableBuilder:getColumnType(columnName)
-  return self:getColumnByName(columnName).name
+  return self:getColumnByName(columnName).type
 end
 
 ---@param columnIndex integer
@@ -94,47 +113,36 @@ function TableBuilder:getColumnTypeOrThrow(columnName)
 end
 
 ---@param builder MeadowsORM.TableBuilder
----@param column string
----@param thisColumn string
----@param onDelete? MeadowsORM.Table.Constraints.OnAction | string
+---@param internalColumn string
+---@param currentColumn string
+---@param onDelete? integer
 ---@return self
-function TableBuilder:relation(builder, column, thisColumn, onDelete)
-  local t1 = builder:getColumnTypeOrThrow(column)
-  local t2 = self:getColumnTypeOrThrow(thisColumn)
+function TableBuilder:relation(builder, internalColumn, currentColumn, onDelete)
+  local t1 = builder:getColumnTypeOrThrow(internalColumn)
+  local t2 = self:getColumnTypeOrThrow(currentColumn)
 
-  if t1 ~= t2 then
-    -- types of related columns should be equal
-    error(builder:getName() .. "." .. column .. ": expected " .. t1 .. ", got " .. self:getName() .. "." .. thisColumn .. " (" .. t2 .. ")")
+  -- types of related columns should be equal
+  if (t1 ~= t2) then
+    error(tostring(builder:getName()) .. "." .. tostring(internalColumn) .. ": expected " .. tostring(t1) .. ", got " .. tostring(self:getName()) .. "." .. tostring(currentColumn) .. " (" .. tostring(t2) .. ")")
   end
 
-  local constraintSql = "FOREIGN KEY (`" .. SQLStr(thisColumn, true) .. "`) REFERENCES `" .. SQLStr(builder:getName(), true) .. "` (`" .. SQLStr(column, true) .. "`)" .. (onDelete and " " .. " ON DELETE " .. SQLStr(onDelete, true) or "")
+  ---@type string?
+  local onDeleteStr
 
-  self._constraints[#self._constraints+1] = constraintSql
+  if (onDelete) then
+    local onDeleteConstraints = package.constraints:toArray("action", onDelete)
+
+    if (#onDeleteConstraints > 1) then
+      error("the number of `ON DELETE` constraints must be exactly one")
+    end
+
+    onDeleteStr = onDeleteConstraints[1]
+  end
+
+  local onDeleteSql = (onDeleteStr and " " .. " ON DELETE " .. SQLStr(onDeleteStr, true) or "")
+  self._constraints[#self._constraints+1] = ("FOREIGN KEY (`%s`) REFERENCES `%s` (`%s`)%s"):format(SQLStr(currentColumn, true), SQLStr(builder:getName(), true), SQLStr(internalColumn, true), onDeleteSql)
 
   return self
-end
-
-local constrainsOrder = { "primary key", "auto_increment", "not null", "unique" }
-
----@param constraints string[]?
----@return string
-local function buildColumnConstraints(constraints)
-  if (not constraints or #constraints == 0) then
-    return ""
-  end
-
-  local order = {}
-  for i, v in ipairs(constrainsOrder) do
-    order[v] = i
-  end
-
-  table.sort(constraints, function(a, b)
-    return order[a] < order[b]
-  end)
-
-  local str = table.concat(constraints, " ")
-
-  return #str > 0 and " " .. str or str
 end
 
 ---@return string[]
@@ -142,45 +150,37 @@ function TableBuilder:buildColumns()
   local result = {}
 
   for i, c in ipairs(self._columns) do
-    local constraints = buildColumnConstraints(c.constraints)
-    local default = c.default and " DEFAULT " .. c.default or "" -- yep we won't escape it
-    local onUpdate = c.onUpdate and " ON UPDATE " .. SQLStr(c.onUpdate, true) or ""
-    result[i] = "`" .. c.name .. "` " .. c.type .. "" .. constraints .. default .. onUpdate
+    local constraints = table.concat(package.constraints:toArray("column", c.constraints or 0), " ")
+    ---@diagnostic disable-next-line
+    local default = c.default and " DEFAULT " .. (isInstanceOf(c.default, RawSQL) and c.default:read() or SQLStr(c.default)) or ""
+    ---@diagnostic disable-next-line
+    local onUpdate = c.onUpdate and " ON UPDATE " .. (isInstanceOf(c.onUpdate, RawSQL) and c.onUpdate:read() or SQLStr(c.onUpdate)) or ""
+    result[i] = "`" .. SQLStr(c.name, true) .. "` " .. SQLStr(c.type, true) .. "" .. (#constraints > 0 and " " .. constraints or "") .. default .. onUpdate
   end
 
   return result
 end
 
----@param tab1 any[]
----@param tab2 any[]
+---@param tab1 string[]
+---@param tab2 string[]
+---@return string[]
 local function mix(tab1, tab2)
-  for _, v in ipairs(tab2) do
-    tab1[#tab1+1] = v
+  local result = {}
+
+  for _, v in ipairs(tab1) do
+    result[#result+1] = v
   end
+
+  for _, v in ipairs(tab2) do
+    result[#result+1] = v
+  end
+
+  return result
 end
 
 --- Builds self into SQL query string
 ---@return string
+
 function TableBuilder:build()
-  local query = "CREATE TABLE IF NOT EXISTS `" .. SQLStr(self._tableName, true) .. "` ("
-
-  local body = {}
-
-  -- columns
-  local columns = self:buildColumns()
-  mix(body, columns)
-  -- constraints
-  mix(body, self._constraints)
-
-  -- build body
-  local count = #body -- body count lol
-  for i, v in ipairs(body) do
-    query = query .. v .. (i == count and "" or ",")
-  end
-
-  query = query .. ")"
-
-  package.logger:trace(query)
-
-  return query
+  return ("CREATE TABLE IF NOT EXISTS `%s` (%s)"):format(SQLStr(self._tableName, true), table.concat(mix(self:buildColumns(), self._constraints), ", "))
 end

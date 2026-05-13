@@ -35,18 +35,21 @@ function Entity:save(column)
 
   async(function()
     local primaryKey = self._table:getPrimaryKey()
+    local columnType = self._table:getColumn(column).type
 
-    local updated = self._table:update({
+    self._table:update({
       where = {
         [primaryKey] = self[primaryKey]
       },
       data = {
-        [column] = self[column]
-      }
+        [column] = package.types:convertToDatabase(self[column], columnType)
+      },
+      returning = false
+      -- cache = true
+      --
+      -- there is no need in cache update
+      -- because we already updated affected field, see `Entity.accessor`
     })
-
-    print(updated)
-    td(updated)
   end)
 end
 
@@ -55,6 +58,7 @@ function Entity:setDatabase(tableInterface)
   self._table = tableInterface
 end
 
+---@protected
 ---@param field string snake_case
 ---@param methodName string camelCase
 function Entity:accessor(field, methodName)

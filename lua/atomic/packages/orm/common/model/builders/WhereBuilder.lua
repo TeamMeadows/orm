@@ -2,7 +2,7 @@
 local package = current()
 
 ---@class MeadowsORM.WhereBuilder: Atomic.Class
----@field private _conditions { [1]: string, [2]: any, [3]: MeadowsORM.WhereBuilder.WhereCompareIndexes }[]
+---@field private _conditions { [1]: string, [2]: any, [3]: MeadowsORM.WhereBuilder.WhereCompareIndexes, [4]: boolean }[]
 local WhereBuilder = package:class("WhereBuilder")
 
 ---@alias MeadowsORM.WhereBuilder.WhereCompare "=" | "<>" | ">" | "<" | ">=" | "<="
@@ -23,11 +23,10 @@ end
 ---@param column string
 ---@param value any
 ---@param compare MeadowsORM.WhereBuilder.WhereCompareIndexes
-function WhereBuilder:insertAnd(column, value, compare)
-  self._conditions[#self._conditions+1] = { column, value, compare }
+---@param isFunction? boolean @default = false
+function WhereBuilder:insertAnd(column, value, compare, isFunction)
+  self._conditions[#self._conditions+1] = { column, value, compare, isFunction or false }
 end
-
-local escape = package.utilities.escape
 
 ---@private
 ---@return string?
@@ -36,7 +35,9 @@ function WhereBuilder:buildCondition()
 
   for i, condition in ipairs(self._conditions) do
     local column = "`" .. condition[1] .. "`"
-    local value = escape(condition[2])
+    local isFunction = condition[4]
+    local value = condition[2]
+    value = isFunction and value .. "()" or SQLStr(value)
     local compareSign = compareIndexes[condition[3]] or "="
 
     result = result .. (i > 1 and " AND " or "") .. column .. compareSign .. value

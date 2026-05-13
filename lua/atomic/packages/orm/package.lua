@@ -10,18 +10,24 @@ return {
   files = {
     dir = "common",
     server = {
-      "utilities",
+      "constraints",
+      "types",
+      "model/RawSQL",
       "model/builders/TableBuilder",
+      "model/builders/JoinBuilder",
       "model/builders/WhereBuilder",
       "model/builders/SelectBuilder",
       "model/builders/InsertBuilder",
       "model/builders/UpdateBuilder",
       "model/builders/DeleteBuilder",
       "model/Entity",
+      "model/TableCache",
       "model/TableInterface",
       "model/Table",
       "api",
-      "database"
+      "database",
+      --
+      -- "test"
     }
   },
   dependencies = {

@@ -1,18 +1,18 @@
 ---@class MeadowsORM: Atomic.Package
 local package = current()
 
+---@type MeadowsORM.SelectBuilder
+local SelectBuilder = package:getClass("SelectBuilder")
+
 ---@class MeadowsORM.InsertBuilder
----@field private _tableName string
----@field private _primaryKey string
+---@field private _table MeadowsORM.Table
 ---@field private _inserted table
 ---@field private _columns string[]
 local InsertBuilder = package:class("InsertBuilder")
 
----@param tableName string
----@param primaryKey string
-function InsertBuilder:init(tableName, primaryKey)
-  self._tableName = tableName
-  self._primaryKey = primaryKey
+---@param table MeadowsORM.Table
+function InsertBuilder:init(table)
+  self._table = table
   self._inserted = {}
   self._columns = {}
 end
@@ -27,8 +27,6 @@ function InsertBuilder:insert(data)
 
   self._inserted[#self._inserted + 1] = data
 end
-
-local escape = package.utilities.escape
 
 ---@private
 ---@return string?
@@ -51,7 +49,7 @@ function InsertBuilder:buildValues()
     local values = {}
 
     for _, key in ipairs(self._columns) do
-      values[#values + 1] = escape(row[key])
+      values[#values + 1] = SQLStr(row[key])
     end
 
     rows[#rows + 1] = "(" .. table.concat(values, ", ") .. ")"
@@ -61,12 +59,24 @@ function InsertBuilder:buildValues()
 end
 
 ---@param disableReturningChangedRow? true
+---@return string[], integer?
 function InsertBuilder:build(disableReturningChangedRow)
   local columns = self:buildColumns()
   local values = self:buildValues()
 
-  return "INSERT INTO `" .. SQLStr(self._tableName, true) .. "`"
+  local returning
+  if (not disableReturningChangedRow) then
+    local builder = new(SelectBuilder, self._table)
+    builder:where("and", self._table:getPrimaryKey(), "LAST_INSERT_ID", "eq", true)
+
+    local builded = builder:build()
+
+    returning = builded[1]
+  end
+
+  local insertQuery = "INSERT INTO `" .. SQLStr(self._table:getName(), true) .. "`"
     .. (columns and " (" .. columns .. ")" or "")
     .. (values and " VALUES " .. values or "")
-    .. (not disableReturningChangedRow and ("SELECT * FROM `" .. SQLStr(self._tableName) .. "` WHERE `" .. self._primaryKey .. "`=LAST_INSERT_ID();") or "")
+
+  return { insertQuery, returning }, returning and 2 or nil
 end

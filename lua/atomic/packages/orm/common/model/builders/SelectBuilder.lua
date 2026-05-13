@@ -13,9 +13,10 @@ local WhereBuilder = package:getClass("WhereBuilder")
 local SelectBuilder = package:class("SelectBuilder")
 
 ---@param table MeadowsORM.Table
-function SelectBuilder:init(table)
+---@param whereBuilder MeadowsORM.WhereBuilder
+function SelectBuilder:init(table, whereBuilder)
   self._table = table
-  self._where = new(WhereBuilder)
+  self._where = whereBuilder or new(WhereBuilder)
   self._select = {}
   self._orderBy = {}
 end
@@ -30,8 +31,9 @@ end
 ---@param column string
 ---@param value any
 ---@param compare MeadowsORM.WhereBuilder.WhereCompareIndexes
-function SelectBuilder:where(method, column, value, compare)
-  self._where:insertAnd(column, value, compare)
+---@param isFunction? boolean @default = false
+function SelectBuilder:where(method, column, value, compare, isFunction)
+  self._where:insertAnd(column, value, compare, isFunction)
 end
 
 ---@param tab table<string, boolean>
@@ -117,6 +119,7 @@ function SelectBuilder:buildColumns()
   return result
 end
 
+---@return string[], integer?
 function SelectBuilder:build()
   local columns = self:buildColumns()
   local where = self:buildWhere()
@@ -129,10 +132,12 @@ function SelectBuilder:build()
   end
 
   ---@diagnostic disable-next-line invisible
-  return "SELECT " .. SQLStr(columns, true) .. " FROM `" .. SQLStr(self._table._builder._tableName, true) .. "`"
+  local query = "SELECT " .. SQLStr(columns, true) .. " FROM `" .. SQLStr(self._table._builder._tableName, true) .. "`"
     .. (where and where or "")
     .. (join and " JOIN " .. join or "")
     .. (order and " ORDER BY " .. order or "")
     ---@diagnostic disable-next-line invisible
     .. (limit and " LIMIT " .. SQLStr(limit, true) or "")
+
+  return { query }
 end

@@ -27,22 +27,30 @@ local numericFields = mysqloo.OPTION_NUMERIC_FIELDS
 
 ---@private
 ---@async
---- WARNING: Make sure that your query have been escaped values
+--- WARNING: Make sure that you escaped the values
+---@param queries string[]
+---@param resultRowIndex? integer @default = 1 Which query's rows this function will return
 ---@return table[]
-function package.database.query(query)
+function package.database.transaction(queries, resultRowIndex)
   local co = coroutine.get()
 
-  local query = db:query(query)
-  query:setOption(numericFields)
-  query.onSuccess = function(_, data)
-    coroutine.resume(co, data)
+  local transaction = db:createTransaction()
+  transaction.onSuccess = function(_, data)
+    coroutine.resume(co, istable(data) and data[resultRowIndex or 1] or {})
   end
 
-  query.onError = function(_, err)
+  transaction.onError = function(_, err)
     coroutine.resume(co, nil, err)
   end
 
-  query:start()
+  for _, querySql in ipairs(queries) do
+    local query = db:query(querySql)
+    query:setOption(numericFields)
+
+    transaction:addQuery(query)
+  end
+
+  transaction:start()
 
   return coroutine.yield()
 end

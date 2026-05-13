@@ -22,6 +22,7 @@ function DeleteBuilder:where(method, column, value, op)
   self._where:insertAnd(column, value, op)
 end
 
+---@return string[], integer?
 function DeleteBuilder:build()
   local where = self._where:build()
 
@@ -29,6 +30,8 @@ function DeleteBuilder:build()
     package.logger:debug("warning: where in DeleteBuilder is empty")
   end
 
-  return "DELETE FROM `" .. SQLStr(self._tableName, true) .. "`"
-    .. (where and " WHERE " .. where or "")
+  local query = "DELETE FROM `" .. SQLStr(self._tableName, true) .. "`"
+    .. (where and where or "")
+
+  return { query }
 end

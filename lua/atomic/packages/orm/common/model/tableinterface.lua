@@ -4,6 +4,9 @@ local package = current()
 ---@type MeadowsORM.Entity
 local Entity = package:getClass("Entity")
 
+---@type MeadowsORM.TableCache
+local TableCache = package:getClass("TableCache")
+
 ---@type MeadowsORM.SelectBuilder
 local SelectBuilder = package:getClass("SelectBuilder")
 
@@ -20,8 +23,7 @@ local DeleteBuilder = package:getClass("DeleteBuilder")
 ---@class MeadowsORM.TableInterface<T>
 ---@field private _table MeadowsORM.Table
 ---@field private _class? Atomic.Class
----@field private _cache? table<(string | number), table> Not array (don't use it in ipairs!)
----@field private _cacheLength? integer
+---@field private _cache? MeadowsORM.TableCache<T>
 local TableInterface = package:class("TableInterface")
 
 ---@param table MeadowsORM.Table
@@ -33,8 +35,7 @@ function TableInterface:init(table)
 
   ---@diagnostic disable-next-line invisible
   if (self._table._cache) then
-    self._cache = {}
-    self._cacheLength = 0
+    self._cache = new(TableCache, self._table)
   end
 end
 
@@ -51,6 +52,12 @@ end
 ---@return string
 function TableInterface:getPrimaryKey()
   return self._primaryKey
+end
+
+---@param columnName string`
+---@return MeadowsORM.TableBuilder.Column?
+function TableInterface:getColumn(columnName)
+  return self._table:getColumn(columnName)
 end
 
 ---@param snakeCase string
@@ -76,6 +83,7 @@ function TableInterface:entity(package, className)
   self._table:deserializationClass(newEntity)
 
   for _, column in ipairs(self._table:getColumns()) do
+    ---@diagnostic disable-next-line xd
     newEntity:accessor(column.name, snakeCaseToPascalCase(column.name))
   end
 
@@ -84,80 +92,42 @@ end
 
 ---@private
 ---@async
----@generic T: Atomic.Class
+---@param queries string[]
+---@param resultRowIndex? integer @default = 1
 ---@param shouldReturn boolean Should SQL query return data?
+---@param shouldCache? boolean @default = false
 ---@param joins? {}[] -- todo
----@return (T | table)[] | nil
-function TableInterface:query(query, shouldReturn, joins)
-  local data, err = package.database.query(query)
+---@return (Atomic.Class | table)[]
+function TableInterface:query(queries, resultRowIndex, shouldReturn, shouldCache, joins)
+  local data, err = package.database.transaction(queries, resultRowIndex)
 
   if (err) then
-    package.logger:err("an error occurred while performing the query %s: %s", debug.getcaller(2), err)
+    package.logger:err("an error occurred while performing the query: %s", err)
     return {}
   end
 
   if (shouldReturn) then
-    local results, casted = self:normalizeResults(data, joins)
+    local results = self:normalizeResults(data, joins)
 
-    if (self._cache) then
-      self:cache(results, casted or results)
+    if (results and #results > 0 and shouldCache and self._cache) then
+      local cache = self:getCache()
+
+      for _, object in ipairs(results) do
+        cache:add(object)
+      end
     end
 
-    return casted or results
-  end
-end
-
----@param timestamp string
----@return Atomic.Time.NaiveDateTime?
-local function timestampToNaive(timestamp)
-  if (not timestamp) then
-    return
+    return results
   end
 
-  local iso = timestamp:gsub(" ", "T")
-  return atomic.time.naiveDateTime.fromIso8601(iso)
-end
-
----@param naive Atomic.Time.NaiveDateTime
----@return string?
-local function naiveToTimestamp(naive)
-  if (not naive) then
-    return
-  end
-
-  local iso = naive:getIso8601()
-  return select(1, iso:gsub("T", " "))
-end
-
--- in - serialization & out - deserialization
----@type table<MeadowsORM.Table.Type, { in: fun(value: (string | number)): any, out: fun(value: any): string }>
-local convertors = {
-  timestamp = { ["in"] = timestampToNaive, out = naiveToTimestamp },
-  ---@diagnostic disable-next-line
-  bool = { ["in"] = tobool, out = function(b) return b and "TRUE" or "FALSE" end},
-  ---@diagnostic disable-next-line
-  json = { ["in"] = util.JSONToTable, out = util.TableToJSON }
-}
-
----@param value any
----@param type MeadowsORM.Table.Type
----@return any
-local function normalizeValue(value, type)
-  local convertor = convertors[type] or {}
-  local cIn = convertor["in"]
-
-  if (not cIn) then
-    return value
-  end
-
-  return cIn(value) or NULL
+  return {}
 end
 
 ---@private
 ---@generic T: Atomic.Class
 ---@param rows (string | number)[][]
 ---@param joins? table
----@return T[], T[]?
+---@return (Atomic.Class | table)
 function TableInterface:normalizeResults(rows, joins)
   if (#rows == 0) then
     return rows
@@ -173,12 +143,14 @@ function TableInterface:normalizeResults(rows, joins)
   ---@type table<string, any>[]
   local normalized = {}
   -- todo join support
+  --    todo raw rows might be != columns
   for i, row in ipairs(rows) do
     local object = {}
 
     ---@diagnostic disable-next-line invisible
     for columnId, column in ipairs(self._table._builder._columns) do
-      object[column.name] = normalizeValue(row[columnId], column.type)
+      -- if we SELECT column№3, column№4, columnId goes fuck down
+      object[column.name] = package.types:convertFromDatabase(row[columnId], column.type)
     end
 
     normalized[i] = object
@@ -194,117 +166,22 @@ function TableInterface:normalizeResults(rows, joins)
     casted[i] = new(class, row)
   end
 
-  return normalized, casted
+  return casted
 end
 
----@private
----@params raw table[] Raw data from database
----@params normalized table[] Casted `raw` to class
-function TableInterface:cache(raw, normalized)
-  local key = self._primaryKey
-
-  for i, value in ipairs(raw) do
-    self._cache[value[key]] = normalized[i]
-  end
-
-  self._cacheLength = self._cacheLength + 1
-end
-
----@param ind integer | string
----@return table?
-function TableInterface:findCached(ind)
-  return self._cache[ind]
-end
-
---- ``Warning``: This method searches for a cached object based on its column value.
----
---- Note that if your class does not have a field with the column name,
---- it will not be able to find this object in the cache.
----@param column string
----@param value any
----@return table[] foundObjects
-function TableInterface:findCachedByFilter(column, value)
-  local result = {}
-
-  for _, obj in pairs(self._cache) do
-    if (obj[column] == value) then
-      result[#result+1] = obj
-    end
-  end
-
-  return result
-end
-
---- ``Warning``: This method searches for a cached object based on its column value.
----
---- Note that if your class does not have a field with the column name,
---- it will not be able to find this object in the cache.
----@param column string
----@param value any
----@return { index: string, row: table }[] foundObjects
-function TableInterface:findCachedByFilterNumerated(column, value)
-  local result = {}
-
-  for primary, obj in pairs(self._cache) do
-    if (obj[column] == value) then
-      result[#result+1] = { index = primary, row = obj }
-    end
-  end
-
-  return result
-end
-
----@param ind integer | string
----@param t table
----@return table?
-function TableInterface:updateCache(ind, t)
-  local oldValue = self._cache[ind]
-
-  if (not oldValue) then
-    return
-  end
-
-  self._cache[ind] = t
-
-  return oldValue
-end
-
----@param ind integer | string
----@return table?
-function TableInterface:deleteFromCache(ind)
-  local oldValue = self._cache[ind]
-
-  self._cache[ind] = nil
-  self._cacheLength = self._cacheLength - 1
-
-  return oldValue
-end
-
----@param column string
----@param value any
----@return table?
-function TableInterface:deleteFromCacheByFilter(column, value)
-  for primary, obj in pairs(self._cache) do
-    if (obj[column] == value) then
-      return self:deleteFromCache(primary)
-    end
-  end
-end
-
----@private
----@return table?
+---@generic T
+---@return MeadowsORM.TableCache<T>
 function TableInterface:getCache()
   return self._cache
 end
 
----@return integer
-function TableInterface:getCacheLength()
-  return self._cacheLength
-end
-
 ---@alias MeadowsORM.TableInterface.WhereClause table<string, string | number | boolean | table<MeadowsORM.WhereBuilder.WhereCompareIndexes, (string | number | boolean)>>
 
----@class MeadowsORM.TableInterface.FindUniqueArgs
+---@class MeadowsORM.TableInterface.MethodBase
+---@field cache? boolean @default = false
+---@field returning? boolean @default = true
+
+---@class MeadowsORM.TableInterface.FindUniqueArgs: MeadowsORM.TableInterface.MethodBase
 ---@field where MeadowsORM.TableInterface.WhereClause
 ---@field select? table<string, true>
 ---@field include? table<string, true>
@@ -370,30 +247,19 @@ local function applySelectParams(builder, params)
   end
 end
 
-local function isValueIn(tab, required, required2)
-  for _, v in ipairs(tab) do
-    if (v == required or v == required2) then
-      return true
-    end
-  end
-
-  return false
-end
-
 ---@param builder MeadowsORM.TableBuilder
 ---@param columnName string
 local function insureColumnIsUnique(builder, columnName)
-  local columnT = builder:getColumnByName(columnName)
-
   -- primary key automatically set unique on your column
-  if (not columnT or not columnT.constraints or not isValueIn(columnT.constraints, "unique", "primary key")) then
+  if (not builder:isColumnHasConstraint(columnName, package.UNIQUE) and not builder:isColumnHasConstraint(columnName, package.PRIMARY_KEY)) then
     error("column `" .. tostring(columnName) .. "` should be unique")
   end
 end
 
 ---@async
+---@generic T
 ---@param params MeadowsORM.TableInterface.FindUniqueArgs
----@return table?
+---@return T
 function TableInterface:findUnique(params)
   for column in pairs(params.where) do
     ---@diagnostic disable-next-line
@@ -405,29 +271,36 @@ function TableInterface:findUnique(params)
 
   applySelectParams(builder, params)
 
-  local rows = self:query(builder:build(), true)
+  local queries, rowIndex = builder:build()
+
+  local rows = self:query(queries, rowIndex, params.returning ~= false, params.cache)
   return type(rows) == "table" and rows[1] or nil
 end
 
 ---@class MeadowsORM.TableInterface.FindFirstArgs: MeadowsORM.TableInterface.FindUniqueArgs
+---@field where? MeadowsORM.TableInterface.WhereClause
 ---@field orderBy? table<string, "asc" | "desc">
 
 ---@async
+---@generic T
 ---@param params MeadowsORM.TableInterface.FindFirstArgs
----@return table?
+---@return T
 function TableInterface:findFirst(params)
   local builder = new(SelectBuilder, self._table)
   builder:limit(1)
 
   applySelectParams(builder, params)
 
-  local rows = self:query(builder:build(), true)
+  local queries, rowIndex = builder:build()
+
+  local rows = self:query(queries, rowIndex, params.returning ~= false, params.cache)
   return type(rows) == "table" and rows[1] or nil
 end
 
 ---@async
+---@generic T
 ---@param params? MeadowsORM.TableInterface.FindFirstArgs
----@return table[]?
+---@return T[]
 function TableInterface:findMany(params)
   local builder = new(SelectBuilder, self._table)
 
@@ -435,44 +308,62 @@ function TableInterface:findMany(params)
     applySelectParams(builder, params)
   end
 
-  return self:query(builder:build(), true)
+  local queries, rowIndex = builder:build()
+
+  return self:query(queries, rowIndex, not params or params.returning ~= false, params and params.cache or nil)
 end
 
----@class MeadowsORM.TableInterface.CreateArgs
+---@class MeadowsORM.TableInterface.CreateArgs: MeadowsORM.TableInterface.MethodBase
 ---@field data table<string, MeadowsORM.InternalSafeTypes>
 
 ---@async
+---@generic T
 ---@param params MeadowsORM.TableInterface.CreateArgs
----@return table?
+---@return T
 function TableInterface:create(params)
-  local builder = new(InsertBuilder, self:getTableName(), self:getPrimaryKey())
-  builder:insert(params)
+  local builder = new(InsertBuilder, self._table)
+  builder:insert(params.data)
 
-  return self:query(builder:build(), true)
+  local queries, rowIndex = builder:build()
+
+  return self:query(queries, rowIndex, params.returning ~= false, params.cache)[1]
 end
 
 ---@class MeadowsORM.TableInterface.CreateManyArgs: MeadowsORM.TableInterface.CreateArgs
 ---@field data table<string, MeadowsORM.InternalSafeTypes>[]
 
 ---@async
+---@generic T
 ---@param params MeadowsORM.TableInterface.CreateManyArgs
----@return table[]?
+---@return T[]
 function TableInterface:createMany(params)
-  local builder = new(InsertBuilder, self:getTableName(), self:getPrimaryKey())
+  local builder = new(InsertBuilder, self._table)
   builder:insert(params)
 
-  return self:query(builder:build(), true)
+  local queries, rowIndex = builder:build()
+
+  return self:query(queries, rowIndex, params.returning ~= false, params.cache)
 end
 
----@class MeadowsORM.TableInterface.UpdateArgs
+---@class MeadowsORM.TableInterface.UpdateArgs: MeadowsORM.TableInterface.MethodBase
 ---@field data table<string, MeadowsORM.InternalSafeTypes>
----@field where? MeadowsORM.TableInterface.WhereClause
+---@field where MeadowsORM.TableInterface.WhereClause
 
 ---@async
+---@generic T
 ---@param params MeadowsORM.TableInterface.UpdateArgs
----@return table?
+---@return T @Updated row
 function TableInterface:update(params)
-  local builder = new(UpdateBuilder, self:getTableName())
+  local builder = new(UpdateBuilder, self._table)
+
+  if (not params.where) then
+    error("where is not set")
+  end
+
+  for column in pairs(params.where) do
+    ---@diagnostic disable-next-line
+    insureColumnIsUnique(self._table._builder, column)
+  end
 
   for column, value in pairs(params.data) do
     builder:set(column, value)
@@ -482,20 +373,24 @@ function TableInterface:update(params)
     applyWhere(builder, params.where)
   end
 
-  print(builder:build())
-  return self:query(builder:build(), true)
+  local queries, rowIndex = builder:build()
+
+  return self:query(queries, rowIndex, params.returning ~= false, params.cache)
 end
 
----@class MeadowsORM.TableInterface.DeleteArgs
+---@class MeadowsORM.TableInterface.DeleteArgs: MeadowsORM.TableInterface.MethodBase
 ---@field where MeadowsORM.TableInterface.WhereClause
 
 ---@async
+---@generic T
 ---@param params MeadowsORM.TableInterface.DeleteArgs
----@return table?
+---@return T
 function TableInterface:delete(params)
   local builder = new(DeleteBuilder, self:getTableName())
 
   applyWhere(builder, params.where)
 
-  return self:query(builder:build(), true)
+  local queries, rowIndex = builder:build()
+
+  return self:query(queries, rowIndex, params.returning ~= false, params.cache)
 end

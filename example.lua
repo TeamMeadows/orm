@@ -4,7 +4,7 @@ local package = current()
 local MeadowsORM = package:getDependency("team.meadows.orm")
 ---@cast MeadowsORM MeadowsORM
 
---- that is bitflags
+--- this is bitflags
 --- you can summary them to combine
 local UNIQUE = MeadowsORM.UNIQUE
 local NOT_NULL = MeadowsORM.NOT_NULL
