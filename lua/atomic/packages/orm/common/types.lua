@@ -27,13 +27,15 @@ package.types = package.types or {
   ---@private
   ---@type table<string, { serialize: function, deserialize: function }>
   _convertors = {
-    timestamp = { serialize = timestampToNaive, deserialize = naiveToTimestamp },
+    timestamp = { serialize = naiveToTimestamp, deserialize = timestampToNaive },
     ---@diagnostic disable-next-line
-    bool = { serialize = tobool, deserialize = function(b) return b and "TRUE" or "FALSE" end},
+    bool = { serialize = function(b) return b and "TRUE" or "FALSE" end, deserialize = tobool },
     ---@diagnostic disable-next-line
-    json = { serialize = util.JSONToTable, deserialize = util.TableToJSON }
+    json = { serialize = util.TableToJSON, deserialize = util.JSONToTable }
   }
 }
+
+package.types._convertors["boolean"] = package.types._convertors["bool"]
 
 ---@param convertKind "serialize" | "deserialize"
 ---@param value any
@@ -42,22 +44,22 @@ function package.types:convert(convertKind, value, type)
   local typeConvertorTable = self._convertors[type]
 
   if (not typeConvertorTable) then
-    return convertKind == "serialize" and value or SQLStr(value, true)
+    return convertKind == "deserialize" and value or SQLStr(value, true)
   end
 
   local convertor = typeConvertorTable[convertKind]
 
-  return convertor(value)
+  return value ~= nil and convertor(value) or nil
 end
 
 ---@param value any
 ---@param type string
 function package.types:convertFromDatabase(value, type)
-  return self:convert("serialize", value, type)
+  return self:convert("deserialize", value, type)
 end
 
 ---@param value any
 ---@param type string
 function package.types:convertToDatabase(value, type)
-  return self:convert("deserialize", value, type)
+  return self:convert("serialize", value, type)
 end

@@ -36,13 +36,15 @@ function Entity:save(column)
   async(function()
     local primaryKey = self._table:getPrimaryKey()
     local columnType = self._table:getColumn(column).type
+    ---@diagnostic disable-next-line
+    local value = self:onDatabaseColumnSave(column)
 
     self._table:update({
       where = {
         [primaryKey] = self[primaryKey]
       },
       data = {
-        [column] = package.types:convertToDatabase(self[column], columnType)
+        [column] = package.types:convertToDatabase(value, columnType)
       },
       returning = false
       -- cache = true
@@ -72,4 +74,12 @@ function Entity:accessor(field, methodName)
   self["get" .. methodCapped] = function(self)
     return self[field]
   end
+end
+
+--- Internal method that should be overriden by the developer
+--- if they want to map the column value before they are inserted into the database.
+---@param column string
+---@return MeadowsORM.InternalSafeTypes
+function Entity:onDatabaseColumnSave(column)
+  return self[column]
 end

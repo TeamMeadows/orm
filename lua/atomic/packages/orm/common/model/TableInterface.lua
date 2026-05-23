@@ -23,7 +23,7 @@ local DeleteBuilder = package:getClass("DeleteBuilder")
 ---@class MeadowsORM.TableInterface<T>
 ---@field private _table MeadowsORM.Table
 ---@field private _class? Atomic.Class
----@field private _cache? MeadowsORM.TableCache<T>
+---@field private _cache? MeadowsORM.TableCache
 local TableInterface = package:class("TableInterface")
 
 ---@param table MeadowsORM.Table
@@ -36,6 +36,12 @@ function TableInterface:init(table)
   ---@diagnostic disable-next-line invisible
   if (self._table._cache) then
     self._cache = new(TableCache, self._table)
+
+    local indexes = self._table:getIndexes()
+
+    if (indexes and #indexes > 0) then
+      self._cache:useIndexes(indexes)
+    end
   end
 end
 
@@ -54,7 +60,7 @@ function TableInterface:getPrimaryKey()
   return self._primaryKey
 end
 
----@param columnName string`
+---@param columnName string
 ---@return MeadowsORM.TableBuilder.Column?
 function TableInterface:getColumn(columnName)
   return self._table:getColumn(columnName)
@@ -124,7 +130,7 @@ function TableInterface:query(queries, resultRowIndex, shouldReturn, shouldCache
 end
 
 ---@private
----@generic T: Atomic.Class
+---@generic T
 ---@param rows (string | number)[][]
 ---@param joins? table
 ---@return (Atomic.Class | table)
@@ -193,8 +199,6 @@ end
 ---@param v any
 ---@return any
 local prepareValue = function(v)
-  -- todo проверить v == NULL (так надёжнее)
-  -- upd нахуй надо? в любом случае если ты энтити пушишь то ты его в бд не сохранишь, ебло, оно просто Entity:__tostring ебанёт и эту хуйню в бд закинет лол
   return isentity(v) and "NULL" or v
 end
 
@@ -259,7 +263,7 @@ end
 ---@async
 ---@generic T
 ---@param params MeadowsORM.TableInterface.FindUniqueArgs
----@return T
+---@return T?
 function TableInterface:findUnique(params)
   for column in pairs(params.where) do
     ---@diagnostic disable-next-line

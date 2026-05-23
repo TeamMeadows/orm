@@ -6,7 +6,7 @@ return {
   documentation = "https://github.com/TeamMeadows/orm",
   icon = "https://github.com/TeamMeadows/orm/raw/production/assets/logo.png",
   kind = "library",
-  version = "1.0.0-alpha.1",
+  version = "1.0.0",
   files = {
     dir = "common",
     server = {
@@ -26,8 +26,6 @@ return {
       "model/Table",
       "api",
       "database",
-      --
-      -- "test"
     }
   },
   dependencies = {

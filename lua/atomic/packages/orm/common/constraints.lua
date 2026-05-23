@@ -62,7 +62,6 @@ function package.constraints:toRawArray(constraintOf, constraints)
 
   local result = {}
 
-  -- TODO it could be ipairs
   ---@cast flags table<string, integer>
   for _, flag in pairs(flags) do
     if (bit.band(constraints, flag) ~= flag) then

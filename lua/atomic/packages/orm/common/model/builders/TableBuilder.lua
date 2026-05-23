@@ -14,6 +14,7 @@ local RawSQL = package:getClass("RawSQL")
 ---@field private _columnsMap table<string, integer>
 ---@field private _constraints string[]
 ---@field private _primaryKey? string
+---@field private _indexes? [(string | string[]), boolean, boolean][]
 local TableBuilder = package:class("TableBuilder")
 
 ---@param tableName string
@@ -22,6 +23,7 @@ function TableBuilder:init(tableName)
   self._columns = {}
   self._columnsMap = {}
   self._constraints = {}
+  self._indexes = {}
 end
 
 ---@return string
@@ -99,6 +101,35 @@ function TableBuilder:getColumnByName(columnName)
   return self._columns[id]
 end
 
+---@return string[]?
+---@return string[]?
+function TableBuilder:getIndexes()
+  local indexes = self._indexes
+
+  if (not indexes) then
+    return
+  end
+
+  local result = {}
+
+  for _, entry in ipairs(indexes) do
+    local indexList = entry[1]
+
+    if (istable(indexList)) then
+      ---@cast indexList string[]
+
+      for _, value in ipairs(indexList) do
+        result[#result + 1] = value
+      end
+    else
+      ---@cast indexList string
+      result[#result + 1] = indexList
+    end
+  end
+
+  return result
+end
+
 ---@private
 ---@param columnName string
 ---@return MeadowsORM.Table.Type
@@ -145,6 +176,13 @@ function TableBuilder:relation(builder, internalColumn, currentColumn, onDelete)
   return self
 end
 
+---@param columns string | string[]
+---@param isUnique? boolean @default = false
+---@param isCacheOnly? boolean @default = false
+function TableBuilder:index(columns, isUnique, isCacheOnly)
+  self._indexes[#self._indexes+1] = { columns, isUnique or false, isCacheOnly or false }
+end
+
 ---@return string[]
 function TableBuilder:buildColumns()
   local result = {}
@@ -156,6 +194,30 @@ function TableBuilder:buildColumns()
     ---@diagnostic disable-next-line
     local onUpdate = c.onUpdate and " ON UPDATE " .. (isInstanceOf(c.onUpdate, RawSQL) and c.onUpdate:read() or SQLStr(c.onUpdate)) or ""
     result[i] = "`" .. SQLStr(c.name, true) .. "` " .. SQLStr(c.type, true) .. "" .. (#constraints > 0 and " " .. constraints or "") .. default .. onUpdate
+  end
+
+  return result
+end
+
+---@return string[]?
+function TableBuilder:buildIndexes()
+  local result = {}
+
+  for _, index in ipairs(self._indexes) do
+    local isCacheOnly = index[3]
+
+    if (isCacheOnly) then
+      continue
+    end
+
+    local columns = index[1]
+    ---@diagnostic disable-next-line
+    local indexName = istable(columns) and table.concat(columns, "_") or columns
+    ---@cast indexName string
+    ---@diagnostic disable-next-line
+    local columnsList = istable(columns) and table.concat(columns, ",") or columns
+
+    result[#result+1] = ("CREATE INDEX%s %s ON %s(%s)"):format(index[2] and " " .. "UNIQUE" .. " " or "", SQLStr(indexName, true), SQLStr(self._tableName, true), columnsList)
   end
 
   return result
@@ -179,8 +241,10 @@ local function mix(tab1, tab2)
 end
 
 --- Builds self into SQL query string
----@return string
-
+---@return string[]
 function TableBuilder:build()
-  return ("CREATE TABLE IF NOT EXISTS `%s` (%s)"):format(SQLStr(self._tableName, true), table.concat(mix(self:buildColumns(), self._constraints), ", "))
+  local table = ("CREATE TABLE IF NOT EXISTS `%s` (%s)"):format(SQLStr(self._tableName, true), table.concat(mix(self:buildColumns(), self._constraints), ", "))
+  local indexes = self:buildIndexes()
+
+  return { table, indexes and unpack(indexes) or nil }
 end

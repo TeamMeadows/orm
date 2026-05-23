@@ -13,12 +13,11 @@ local constraints = package.constraints.column
 local AUTO_INCREMENT = constraints.AUTO_INCREMENT
 local NOT_NULL = constraints.NOT_NULL
 local PRIMARY_KEY = constraints.PRIMARY_KEY
-local UNIQUE = constraints.UNIQUE
 
 ---@type MeadowsORM.TableInterface
 local TableInterface = package:getClass("TableInterface")
 
----@alias MeadowsORM.Table.Type "char" | "tinytext" | "text" | "mediumtext" | "tinyint" | "smallint" | "mediumint" | "int" | "bigint" | "float" | "double" | "bool" | "json" | "date" | "time" | "datetime" | "timestamp"
+---@alias MeadowsORM.Table.Type "char" | "tinytext" | "text" | "mediumtext" | "tinyint" | "smallint" | "mediumint" | "int" | "bigint" | "float" | "double" | "bool" | "boolean" | "json" | "date" | "time" | "datetime" | "timestamp"
 
 --- Class that implements structure of a MySQL's Table.
 ---
@@ -68,11 +67,16 @@ function Table:getDeserializationClass()
   return self._class
 end
 
+---@return string[]?
+function Table:getIndexes()
+  return self._builder:getIndexes()
+end
+
 ---@param name string
 ---@param type MeadowsORM.Table.Type | string
 ---@param columnConstraints? integer
 ---@param default? string | MeadowsORM.RawSQL
----@param onUpdate? string | MeadowsORM.RawSQL
+---@param onUpdate? integer | MeadowsORM.RawSQL
 ---@return self
 function Table:column(name, type, columnConstraints, default, onUpdate)
   self._builder:column(name, type, columnConstraints, default, onUpdate)
@@ -93,6 +97,29 @@ function Table:relation(table, internalColumn, currentColumn, onDelete)
   local builder = not isSelf and (table._builder or table._table and table._table._builder)
   ---@diagnostic disable-next-line
   self._builder:relation(isSelf and self._builder or builder, isSelf and table or internalColumn, isSelf and internalColumn or currentColumn, isSelf and currentColumn or onDelete)
+
+  return self
+end
+
+--- Creates an [`index`]() in the table.
+---
+--- ```lua
+--- local table = MeadowsORM:create("sumtable")
+---   :id()
+---   :column("name", "tinytext", MeadowsORM.UNIQUE)
+---   :index("name", false, true)
+--- ```
+--- If the column that you apply index on is not unique,
+--- you cannot use column as index in cache for get better Cache:find (O(1)) performance.
+--- So then you need to set #3 argument to `false` (it will disable creating index in cache).
+---
+--- But if the column is *unique*,
+--- you can
+---@param columns string | string[]
+---@param isUnique boolean @default = false
+---@param isCacheOnly boolean @default = false
+function Table:index(columns, isUnique, isCacheOnly)
+  self._builder:index(columns, isUnique, isCacheOnly)
 
   return self
 end
@@ -143,12 +170,12 @@ end
 
 ---@return MeadowsORM.TableInterface
 function Table:build()
-  local sql = self._builder:build()
+  local queries = self._builder:build()
 
-  package.logger:trace(sql)
+  package.logger:trace("building mysql column: `%s`", queries[1])
 
   async(function()
-    local _, err = atomic.mysql.query(sql)
+    local _, err = package.database.transaction(queries, 0)
 
     if (err) then
       package.logger:err("unable to create table `%s`: %s", self:getName(), err)
