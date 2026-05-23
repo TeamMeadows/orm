@@ -1,7 +1,10 @@
 ---@class MeadowsORM: Atomic.Package
 local package = current()
 
----@alias MeadowsORM.InternalSafeTypes string | number | boolean | Atomic.Time.NaiveDateTime | table
+---@alias MeadowsORM.InternalSafeTypes string | number | boolean | table | Atomic.Time.NaiveDateTime | nil | Entity
+
+---@type MeadowsORM.RawSQL
+local RawSQL = package:getClass("RawSQL")
 
 local Atomic = package:getDependency("atomic")
 ---@cast Atomic InternalAtomic
@@ -56,3 +59,6 @@ package.CASCADE = package.constraints.action.CASCADE
 package.RESTRICT = package.constraints.action.RESTRICT
 package.SET_DEFAULT = package.constraints.action.SET_DEFAULT
 package.SET_NULL = package.constraints.action.SET_NULL
+
+package.DEFAULT_JSON_ARRAY = new(RawSQL, "(JSON_ARRAY())")
+package.DEFAULT_JSON_OBJECT = new(RawSQL, "(JSON_OBJECT())")
