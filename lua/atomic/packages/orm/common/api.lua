@@ -45,6 +45,16 @@ function package:create(tableName)
   return new(Table, tableName)
 end
 
+--- ```lua
+--- local RawSQL = MeadowsORM.RawSQL
+--- RawSQL("NOT NULL")
+--- ```
+---@param sql string
+---@return MeadowsORM.RawSQL
+function package.RawSQL(sql)
+  return new(RawSQL, sql)
+end
+
 -- all available constraints
 
 -- column constraints

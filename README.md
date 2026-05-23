@@ -20,22 +20,26 @@ Meadows ORM is an [ORM](https://en.wikipedia.org/wiki/Object%E2%80%93relational_
 - [x] Declarative style - you do not need to write SQL code
 - [x] Automatic values escaping - you do not need to be care of SQL injections
 - [x] Relations support
-- [x] Joins support - you can write complex queries
 - [x] Based on coroutines (async)
 - [x] Easy to embed in your project
 - [x] [Prisma](https://prisma.io)-like interface to interact with your database
+- [x] Indexes support
+- [x] [Caching] support
+  - *Indexes allows you to get values from cache with O(1) complexity
+- [ ] Joins support - you can write complex queries with ease
+- [ ] Prebuilded queries
 
-## Example
-```lua
-local users = users:findMany({
-  where = {
-    group = "superadmin"
-  }
-})
+## Examples
+### Basics
+- [Table Definition](./examples/table_definition.lua) — database table definition
+- [Queries](./examples/queries.lua) — how to make queries
+- [Summary](./examples/summary.lua) — everything in one file
 
-assert(#users == 4)
-```
-See the detailed example in the [example.lua](./example.lua) file
+### Advanced
+- [Relations](./examples/relations.lua) — relationships between tables
+- [Entity](./examples/entity.lua) — custom entity creation
+- [Cache](./examples/cache.lua) — cached queries and CRUD operations
+- [JSON](./examples/json.lua) — working with JSON data
 
 <a href="https://github.com/TeamMeadows/atomic-framework">
   <p align="center">
