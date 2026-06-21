@@ -40,7 +40,13 @@ package.types._convertors["boolean"] = package.types._convertors["bool"]
 ---@param convertKind "serialize" | "deserialize"
 ---@param value any
 ---@param type string
-function package.types:convert(convertKind, value, type)
+---@param isNotNullable? boolean
+---@return MeadowsORM.InternalSafeTypes
+function package.types:convert(convertKind, value, type, isNotNullable)
+  if (not value and not isNotNullable) then
+    return convertKind == "serialize" and NULL or nil
+  end
+
   local typeConvertorTable = self._convertors[type]
 
   if (not typeConvertorTable) then
@@ -54,12 +60,14 @@ end
 
 ---@param value any
 ---@param type string
-function package.types:convertFromDatabase(value, type)
-  return self:convert("deserialize", value, type)
+---@param isNotNullable? boolean
+function package.types:convertFromDatabase(value, type, isNotNullable)
+  return self:convert("deserialize", value, type, isNotNullable)
 end
 
 ---@param value any
 ---@param type string
-function package.types:convertToDatabase(value, type)
-  return self:convert("serialize", value, type)
+---@param isNotNullable? boolean
+function package.types:convertToDatabase(value, type, isNotNullable)
+  return self:convert("serialize", value, type, isNotNullable)
 end

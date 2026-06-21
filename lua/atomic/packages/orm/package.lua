@@ -4,9 +4,9 @@ return {
   title = "Meadows ORM",
   description = "An ORM for MySQLOO",
   documentation = "https://github.com/TeamMeadows/orm",
-  icon = "https://github.com/TeamMeadows/orm/raw/production/assets/logo.png",
+  icon = "https://github.com/TeamMeadows/orm/raw/develop/assets/logo.png",
   kind = "library",
-  version = "1.0.0-alpha.2",
+  version = "1.0.0-alpha.3",
   files = {
     dir = "common",
     server = {

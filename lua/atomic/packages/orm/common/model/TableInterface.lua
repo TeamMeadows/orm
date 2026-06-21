@@ -153,10 +153,11 @@ function TableInterface:normalizeResults(rows, joins)
   for i, row in ipairs(rows) do
     local object = {}
 
-    ---@diagnostic disable-next-line invisible
-    for columnId, column in ipairs(self._table._builder._columns) do
+    for columnId, column in ipairs(builder:getColumns()) do
+      local columnName = column.name
+      local notNullable = builder:isColumnHasConstraint(columnName, package.NOT_NULL)
       -- if we SELECT column№3, column№4, columnId goes fuck down
-      object[column.name] = package.types:convertFromDatabase(row[columnId], column.type)
+      object[columnName] = package.types:convertFromDatabase(row[columnId], column.type, notNullable)
     end
 
     normalized[i] = object
