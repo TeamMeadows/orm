@@ -109,7 +109,7 @@ end
 ---@return T?
 function TableCache:findIndexed(column, value)
   local indexed = self._storage[column]
-  return indexed and indexed[value]
+  return indexed and indexed[value] or nil
 end
 
 --- Returns the number of objects stored in the cache
